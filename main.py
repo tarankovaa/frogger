@@ -5,7 +5,6 @@ import pygame
 
 FPS = 30
 WIDTH, HEIGHT = 448, 512
-
 DELAY = 500
 
 pygame.init()
@@ -76,6 +75,18 @@ float_group = pygame.sprite.Group()
 frog_homes_group = pygame.sprite.Group()
 
 
+def cut_sheet(sheet, columns, rows):
+    frames = []
+    rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                       sheet.get_height() // rows)
+    for j in range(rows):
+        for i in range(columns):
+            frame_location = (rect.width * i, rect.height * j)
+            frames.append(sheet.subsurface(pygame.Rect(
+                frame_location, rect.size)))
+    return frames
+
+
 class Frog(pygame.sprite.Sprite):
 
     def __init__(self, x, y, speed):
@@ -134,17 +145,24 @@ class Frog(pygame.sprite.Sprite):
 
     def update(self):
         if pygame.sprite.spritecollideany(self, cars_group):
-            self.collide = True
-        if sprite := pygame.sprite.spritecollideany(self, float_group):
+            self.restart()
+        elif sprite := pygame.sprite.spritecollideany(self, float_group):
             if sprite.__class__ is DivingTurtles and sprite.cur_frame == 4:
-                self.collide = True
+                self.restart()
             self.pos_x += sprite.speed
             self.rect.x = self.pos_x
-        if 64 < self.rect.y < 256:
+        elif sprite := pygame.sprite.spritecollideany(self, frog_homes_group):
+            if sprite.cur_state != 'reached':
+                sprite.change_state('reached')
+            self.restart()
+        if 96 <= self.rect.y < 256:
             if not pygame.sprite.spritecollideany(self, float_group):
-                self.collide = True
+                self.restart()
             if self.rect.x > WIDTH or self.rect.x < 0:
-                self.collide = True
+                self.restart()
+        if self.rect.y < 96:
+            if not pygame.sprite.spritecollideany(self, frog_homes_group):
+                self.restart()
 
     def restart(self):
         self.rect.x = self.start_x
@@ -196,40 +214,18 @@ class Log(WrappingSprite):
         self.add(float_group)
 
 
-def cut_sheet(sheet, columns, rows):
-    frames = []
-    rect = pygame.Rect(0, 0, sheet.get_width() // columns,
-                       sheet.get_height() // rows)
-    for j in range(rows):
-        for i in range(columns):
-            frame_location = (rect.width * i, rect.height * j)
-            frames.append(sheet.subsurface(pygame.Rect(
-                frame_location, rect.size)))
-    return frames
-
-
 class AnimatedWrappingSprite(WrappingSprite):
 
     def __init__(self, sheet, columns, rows, x, y, speed, delay):
         super(AnimatedWrappingSprite, self).__init__(sheet, x, y, speed)
 
-        self.frames = []
-        self.cut_sheet(self.image, columns, rows)
+        self.frames = cut_sheet(self.image, columns, rows)
         self.cur_frame = 0
         self.image = self.frames[self.cur_frame]
         self.rect = self.image.get_rect()
         self.rect = self.rect.move(x, y)
         self.delay = delay
         self.timer = self.delay
-
-    def cut_sheet(self, sheet, columns, rows):
-        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
-                                sheet.get_height() // rows)
-        for j in range(rows):
-            for i in range(columns):
-                frame_location = (self.rect.width * i, self.rect.height * j)
-                self.frames.append(sheet.subsurface(pygame.Rect(
-                    frame_location, self.rect.size)))
 
     def update(self):
         super(AnimatedWrappingSprite, self).update()
@@ -267,12 +263,14 @@ class FrogHome(pygame.sprite.Sprite):
         self.states = {'empty': states[0],
                        'reached': states[1],
                        'completed': states[2]}
-        self.image = self.states['empty']
+        self.cur_state = 'empty'
+        self.image = self.states[self.cur_state]
         self.rect = self.image.get_rect()
         self.rect = self.rect.move(x, y)
 
     def change_state(self, state):
-        self.image = self.states[state]
+        self.cur_state = state
+        self.image = self.states[self.cur_state]
 
 
 Car(Car.TYPE_1, 160, 416, -0.75)
@@ -301,7 +299,7 @@ Log(Log.TYPE_1, 240, 192, 0.75)
 Log(Log.TYPE_1, 416, 192, 0.75)
 
 Log(Log.TYPE_2, 32, 160, 2.5)
-Log(Log.TYPE_2, 288, 160, 2.5)
+Log(Log.TYPE_2, 320, 160, 2.5)
 
 DivingTurtles(DivingTurtles.TYPE_2, 80, 128, -1.75)
 Turtles(Turtles.TYPE_2, 208, 128, -1.75)
