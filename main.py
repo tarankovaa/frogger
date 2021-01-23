@@ -71,7 +71,6 @@ def main_menu_screen():
 
 
 all_sprites = pygame.sprite.Group()
-player_sprite = pygame.sprite.Group()
 cars_group = pygame.sprite.Group()
 logs_group = pygame.sprite.Group()
 turtles_group = pygame.sprite.Group()
@@ -92,11 +91,11 @@ class WrappingSprite(pygame.sprite.Sprite):
     def update(self):
         self.pos_x += self.speed
         self.rect.x = self.pos_x
-        if self.rect.x > WIDTH + self.rect.width and self.speed > 0:
+        if self.rect.x > WIDTH + 32 and self.speed > 0:
             self.pos_x = 0 - self.rect.width
-            self.rect.x = 0 - self.rect.width
+            self.rect.x = self.pos_x
         elif self.rect.x < 0 - self.rect.width:
-            self.pos_x = WIDTH + self.rect.width
+            self.pos_x = WIDTH + 32
             self.rect.x = self.pos_x
 
 
@@ -104,7 +103,7 @@ class Frog(pygame.sprite.Sprite):
     frog_anim = 'frog_anim.png'
 
     def __init__(self, x, y, speed):
-        super(Frog, self).__init__(player_sprite)
+        super(Frog, self).__init__(all_sprites)
 
         self.frames_up = []
         self.frames_dw = []
@@ -137,7 +136,7 @@ class Frog(pygame.sprite.Sprite):
                     self.frames_rh.append(sheet.subsurface(pygame.Rect(
                         frame_location, self.rect.size)))
 
-    def update(self, *args):
+    def move(self, *args):
         if args[1]:
             self.cur_frame = (self.cur_frame + 1) % len(self.frames_up)
             if self.d == 'l':
@@ -167,9 +166,13 @@ class Frog(pygame.sprite.Sprite):
                     x, y = 0, self.speed
                     img = self.frames_dw[self.cur_frame]
                     self.d = 'd'
-                if 0 < self.rect.x + x < WIDTH and 0 < self.rect.y + y < HEIGHT - 32:
+                if 0 <= self.rect.x + x < WIDTH and 34 <= self.rect.y + y < HEIGHT - 32:
                     self.rect = self.rect.move(x, y)
             self.image = img
+
+    def update(self):
+        if pygame.sprite.spritecollideany(self, cars_group):
+            self.kill()
 
 
 class Car(WrappingSprite):
@@ -194,15 +197,28 @@ class Log(WrappingSprite):
         self.add(logs_group)
 
 
-class TimerSprite(WrappingSprite):
+def cut_sheet(sheet, columns, rows):
+    frames = []
+    rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                       sheet.get_height() // rows)
+    for j in range(rows):
+        for i in range(columns):
+            frame_location = (rect.width * i, rect.height * j)
+            frames.append(sheet.subsurface(pygame.Rect(
+                frame_location, rect.size)))
+    return frames
+
+
+class AnimatedWrappingSprite(WrappingSprite):
 
     def __init__(self, sheet, columns, rows, x, y, speed, delay):
-        super(TimerSprite, self).__init__(sheet, x, y, speed)
+        super(AnimatedWrappingSprite, self).__init__(sheet, x, y, speed)
 
         self.frames = []
         self.cut_sheet(self.image, columns, rows)
         self.cur_frame = 0
         self.image = self.frames[self.cur_frame]
+        self.rect = self.image.get_rect()
         self.rect = self.rect.move(x, y)
         self.delay = delay
         self.timer = self.delay
@@ -217,7 +233,7 @@ class TimerSprite(WrappingSprite):
                     frame_location, self.rect.size)))
 
     def update(self):
-        super(TimerSprite, self).update()
+        super(AnimatedWrappingSprite, self).update()
 
         self.timer -= clock.get_time()
         if self.timer < 0:
@@ -226,7 +242,7 @@ class TimerSprite(WrappingSprite):
             self.timer = self.delay
 
 
-class Turtles(TimerSprite):
+class Turtles(AnimatedWrappingSprite):
     TYPE_1 = 'turtles1.png'
     TYPE_2 = 'turtles2.png'
 
@@ -235,7 +251,7 @@ class Turtles(TimerSprite):
         self.add(turtles_group)
 
 
-class DivingTurtles(TimerSprite):
+class DivingTurtles(AnimatedWrappingSprite):
     TYPE_1 = 'diving-turtles1.png'
     TYPE_2 = 'diving-turtles2.png'
 
@@ -245,21 +261,64 @@ class DivingTurtles(TimerSprite):
 
 
 class FrogHome(pygame.sprite.Sprite):
-    pass
+
+    def __init__(self, x, y):
+        super(FrogHome, self).__init__(all_sprites, frog_homes_group)
+        states = cut_sheet(load_image('home-states.png'), 3, 1)
+        self.states = {'empty': states[0],
+                       'reached': states[1],
+                       'completed': states[2]}
+        self.image = self.states['empty']
+        self.rect = self.image.get_rect()
+        self.rect = self.rect.move(x, y)
+
+    def change_state(self, state):
+        self.image = self.states[state]
 
 
-Car(Car.TYPE_1, 160, 416, -1)
-Car(Car.TYPE_1, 304, 416, -1)
-Car(Car.TYPE_1, 448, 416, -1)
-Car(Car.TYPE_2, 192, 384, 1.1)
-Car(Car.TYPE_2, 320, 384, 1.1)
-Car(Car.TYPE_2, 448, 384, 1.1)
-Car(Car.TYPE_3, 192, 352, -1.2)
-Car(Car.TYPE_3, 320, 352, -1.2)
-Car(Car.TYPE_3, 448, 352, -1.2)
-Car(Car.TYPE_4, 460, 320, 1.4)
-Car(Car.TYPE_5, 240, 288, -1.5)
-Car(Car.TYPE_5, 416, 288, -1.5)
+Car(Car.TYPE_1, 160, 416, -0.75)
+Car(Car.TYPE_1, 304, 416, -0.75)
+Car(Car.TYPE_1, 448, 416, -0.75)
+
+Car(Car.TYPE_2, 192, 384, 1)
+Car(Car.TYPE_2, 320, 384, 1)
+Car(Car.TYPE_2, 448, 384, 1)
+
+Car(Car.TYPE_3, 192, 352, -1.25)
+Car(Car.TYPE_3, 320, 352, -1.25)
+Car(Car.TYPE_3, 448, 352, -1.25)
+
+Car(Car.TYPE_4, 460, 320, 1.5)
+Car(Car.TYPE_5, 240, 288, -1.75)
+Car(Car.TYPE_5, 416, 288, -1.75)
+
+DivingTurtles(DivingTurtles.TYPE_1, 0, 224, -1.75)
+Turtles(Turtles.TYPE_1, 144, 224, -1.75)
+Turtles(Turtles.TYPE_1, 288, 224, -1.75)
+Turtles(Turtles.TYPE_1, 432, 224, -1.75)
+
+Log(Log.TYPE_1, 64, 192, 0.75)
+Log(Log.TYPE_1, 240, 192, 0.75)
+Log(Log.TYPE_1, 416, 192, 0.75)
+
+Log(Log.TYPE_2, 32, 160, 2.5)
+Log(Log.TYPE_2, 256, 160, 2.5)
+Log(Log.TYPE_2, 480, 160, 2.5)
+
+DivingTurtles(DivingTurtles.TYPE_2, 80, 128, -1.75)
+Turtles(Turtles.TYPE_2, 208, 128, -1.75)
+Turtles(Turtles.TYPE_2, 336, 128, -1.75)
+Turtles(Turtles.TYPE_2, 464, 128, -1.75)
+
+Log(Log.TYPE_3, 0, 96, 1.5)
+Log(Log.TYPE_3, 208, 96, 1.5)
+Log(Log.TYPE_3, 416, 96, 1.5)
+
+FrogHome(16, 64)
+FrogHome(112, 64)
+FrogHome(208, 64)
+FrogHome(304, 64)
+FrogHome(400, 64)
 
 
 def game_screen():
@@ -270,15 +329,16 @@ def game_screen():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            if event.type != pygame.MOUSEMOTION and event.type != pygame.WINDOWEVENT \
+            if event.type != pygame.MOUSEMOTION and event.type != pygame.WINDOWENTER \
+                    and event.type != pygame.WINDOWLEAVE \
                     and event.type != pygame.MOUSEBUTTONDOWN and event.type != pygame.MOUSEBUTTONUP \
+                    and event.type != pygame.WINDOWEXPOSED and event.type != pygame.WINDOWHIDDEN \
                     and event.type != pygame.ACTIVEEVENT:
                 if event.type == pygame.KEYDOWN:
                     k = 1 if event.scancode in range(79, 83) else 0
-                frog.update(event, k)
+                frog.move(event, k)
         screen.blit(bg, (0, 0))
         all_sprites.draw(screen)
-        player_sprite.draw(screen)
         all_sprites.update()
         pygame.display.flip()
         clock.tick(FPS)
