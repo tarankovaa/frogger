@@ -167,7 +167,7 @@ class Frog(pygame.sprite.Sprite):
                     x, y = 0, self.speed
                     img = self.frames_dw[self.cur_frame]
                     self.d = 'd'
-                if 0 < self.rect.x + x < WIDTH and 0 < self.rect.y + y < HEIGHT - 32:
+                if 0 <= self.rect.x + x <= WIDTH and 0 <= self.rect.y + y <= HEIGHT - 32:
                     self.rect = self.rect.move(x, y)
             self.image = img
 
@@ -326,7 +326,8 @@ def game_screen():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            if event.type != pygame.MOUSEMOTION and event.type != pygame.WINDOWEVENT \
+            if event.type != pygame.MOUSEMOTION and event.type != pygame.WINDOWENTER \
+                    and event.type != pygame.WINDOWLEAVE \
                     and event.type != pygame.MOUSEBUTTONDOWN and event.type != pygame.MOUSEBUTTONUP \
                     and event.type != pygame.ACTIVEEVENT:
                 if event.type == pygame.KEYDOWN:
