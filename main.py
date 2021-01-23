@@ -101,6 +101,7 @@ class WrappingSprite(pygame.sprite.Sprite):
 
 class Frog(pygame.sprite.Sprite):
     frog_anim = 'frog_anim.png'
+    frog_death = 'death_anim.png'
 
     def __init__(self, x, y, speed):
         super(Frog, self).__init__(all_sprites)
@@ -109,32 +110,43 @@ class Frog(pygame.sprite.Sprite):
         self.frames_dw = []
         self.frames_lf = []
         self.frames_rh = []
-        self.cut_sheet(load_image(self.frog_anim, -1), 8, 1)
+        self.frames_death = []
+        self.cut_sheet(load_image(self.frog_anim, -1), 8, 1, self.frog_anim)
+        self.cut_sheet(load_image(self.frog_death, -1), 7, 1, self.frog_death)
         self.cur_frame = 0
+        self.cur_frame_death = len(self.frames_death) - 1
         self.image = self.frames_up[self.cur_frame]
         self.rect = self.image.get_rect()
         self.rect = self.rect.move(x, y)
         self.speed = speed
         self.d = 'u'
+        self.t = 0
+        self.collide = False
 
-    def cut_sheet(self, sheet, columns, rows):
+    def cut_sheet(self, sheet, columns, rows, name):
         self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
                                 sheet.get_height() // rows)
         for j in range(rows):
             for i in range(columns):
-                frame_location = (self.rect.w * i, self.rect.h * j)
-                if i < 2:
-                    self.frames_up.append(sheet.subsurface(pygame.Rect(
-                        frame_location, self.rect.size)))
-                elif 1 < i < 4:
-                    self.frames_lf.append(sheet.subsurface(pygame.Rect(
-                        frame_location, self.rect.size)))
-                elif 3 < i < 6:
-                    self.frames_dw.append(sheet.subsurface(pygame.Rect(
-                        frame_location, self.rect.size)))
+                if name == self.frog_anim:
+                    frame_location = (self.rect.w * i, self.rect.h * j)
+                    if i < 2:
+                        self.frames_up.append(sheet.subsurface(pygame.Rect(
+                            frame_location, self.rect.size)))
+                    elif 1 < i < 4:
+                        self.frames_lf.append(sheet.subsurface(pygame.Rect(
+                            frame_location, self.rect.size)))
+                    elif 3 < i < 6:
+                        self.frames_dw.append(sheet.subsurface(pygame.Rect(
+                            frame_location, self.rect.size)))
+                    else:
+                        self.frames_rh.append(sheet.subsurface(pygame.Rect(
+                            frame_location, self.rect.size)))
                 else:
-                    self.frames_rh.append(sheet.subsurface(pygame.Rect(
-                        frame_location, self.rect.size)))
+                    frame_location = (self.rect.w * i, self.rect.h * j)
+                    for _ in range(6):
+                        self.frames_death.append(sheet.subsurface(pygame.Rect(
+                            frame_location, self.rect.size)))
 
     def move(self, *args):
         if args[1]:
@@ -171,8 +183,17 @@ class Frog(pygame.sprite.Sprite):
             self.image = img
 
     def update(self):
-        if pygame.sprite.spritecollideany(self, cars_group):
-            self.kill()
+        if self.collide:
+            self.cur_frame_death = (self.cur_frame_death + 1) % len(self.frames_death)
+            if not self.cur_frame_death:
+                self.t += 1
+            self.image = self.frames_death[self.cur_frame_death]
+            if self.cur_frame_death == 0 and self.t > 1:
+                self.kill()
+        else:
+            if pygame.sprite.spritecollideany(self, cars_group):
+                print('coll')
+                self.collide = True
 
 
 class Car(WrappingSprite):
