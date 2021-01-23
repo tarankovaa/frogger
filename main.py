@@ -71,14 +71,11 @@ def main_menu_screen():
 
 
 all_sprites = pygame.sprite.Group()
+player_sprite = pygame.sprite.Group()
 cars_group = pygame.sprite.Group()
 logs_group = pygame.sprite.Group()
 turtles_group = pygame.sprite.Group()
 frog_homes_group = pygame.sprite.Group()
-
-
-class Frog(pygame.sprite.Sprite):
-    pass
 
 
 class WrappingSprite(pygame.sprite.Sprite):
@@ -101,6 +98,78 @@ class WrappingSprite(pygame.sprite.Sprite):
         elif self.rect.x < 0 - self.rect.width:
             self.pos_x = WIDTH + self.rect.width
             self.rect.x = self.pos_x
+
+
+class Frog(pygame.sprite.Sprite):
+    frog_anim = 'frog_anim.png'
+
+    def __init__(self, x, y, speed):
+        super(Frog, self).__init__(player_sprite)
+
+        self.frames_up = []
+        self.frames_dw = []
+        self.frames_lf = []
+        self.frames_rh = []
+        self.cut_sheet(load_image(self.frog_anim, -1), 8, 1)
+        self.cur_frame = 0
+        self.image = self.frames_up[self.cur_frame]
+        self.rect = self.image.get_rect()
+        self.rect = self.rect.move(x, y)
+        self.speed = speed
+        self.d = 'u'
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                if i < 2:
+                    self.frames_up.append(sheet.subsurface(pygame.Rect(
+                        frame_location, self.rect.size)))
+                elif 1 < i < 4:
+                    self.frames_lf.append(sheet.subsurface(pygame.Rect(
+                        frame_location, self.rect.size)))
+                elif 3 < i < 6:
+                    self.frames_dw.append(sheet.subsurface(pygame.Rect(
+                        frame_location, self.rect.size)))
+                else:
+                    self.frames_rh.append(sheet.subsurface(pygame.Rect(
+                        frame_location, self.rect.size)))
+
+    def update(self, *args):
+        if args[1]:
+            self.cur_frame = (self.cur_frame + 1) % len(self.frames_up)
+            if self.d == 'l':
+                img = self.frames_lf[self.cur_frame]
+            elif self.d == 'r':
+                img = self.frames_rh[self.cur_frame]
+            elif self.d == 'u':
+                img = self.frames_up[self.cur_frame]
+            else:
+                img = self.frames_dw[self.cur_frame]
+
+            if args and args[0].type == pygame.KEYDOWN:
+                x, y = 0, 0
+                if args[0].scancode == 80:
+                    x, y = -self.speed, 0
+                    img = self.frames_lf[self.cur_frame]
+                    self.d = 'l'
+                elif args[0].scancode == 79:
+                    x, y = self.speed, 0
+                    img = self.frames_rh[self.cur_frame]
+                    self.d = 'r'
+                elif args[0].scancode == 82:
+                    x, y = 0, -self.speed
+                    img = self.frames_up[self.cur_frame]
+                    self.d = 'u'
+                elif args[0].scancode == 81:
+                    x, y = 0, self.speed
+                    img = self.frames_dw[self.cur_frame]
+                    self.d = 'd'
+                if 0 < self.rect.x + x < WIDTH and 0 < self.rect.y + y < HEIGHT - 32:
+                    self.rect = self.rect.move(x, y)
+            self.image = img
 
 
 class Car(WrappingSprite):
@@ -195,12 +264,21 @@ Car(Car.TYPE_5, 416, 288, -1.5)
 
 def game_screen():
     bg = load_image('level-background.png')
+    frog = Frog(WIDTH // 2, HEIGHT - 64, 32)
+    k = 0
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
+            if event.type != pygame.MOUSEMOTION and event.type != pygame.WINDOWEVENT \
+                    and event.type != pygame.MOUSEBUTTONDOWN and event.type != pygame.MOUSEBUTTONUP \
+                    and event.type != pygame.ACTIVEEVENT:
+                if event.type == pygame.KEYDOWN:
+                    k = 1 if event.scancode in range(79, 83) else 0
+                frog.update(event, k)
         screen.blit(bg, (0, 0))
         all_sprites.draw(screen)
+        player_sprite.draw(screen)
         all_sprites.update()
         pygame.display.flip()
         clock.tick(FPS)
