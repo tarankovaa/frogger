@@ -3,15 +3,10 @@ import sys
 
 import pygame
 
+FPS = 30
+WIDTH, HEIGHT = 448, 512
 
-DATA_DIR = 'data'
-IMAGES_DIR = 'data/images'
-
-FPS = 50
-WIDTH, HEIGHT = 500, 500
-
-TIME_OUT_EVENT = pygame.USEREVENT + 1
-
+DELAY = 500
 
 pygame.init()
 pygame.display.set_caption('Frogger')
@@ -19,11 +14,9 @@ pygame.display.set_caption('Frogger')
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
-all_sprites = pygame.sprite.Group()
-
 
 def load_image(name, colorkey=None):
-    fullname = os.path.join(IMAGES_DIR, name)
+    fullname = os.path.join('data', 'images', name)
     if not os.path.isfile(fullname):
         print(f'Файл с изображением "{fullname}" не найден')
         sys.exit()
@@ -40,13 +33,13 @@ def load_image(name, colorkey=None):
 
 
 def load_highscore():
-    with open(os.path.join(DATA_DIR, 'highscore.txt'), 'r',
+    with open(os.path.join('data', 'highscore.txt'), 'r',
               encoding='utf8') as f:
         return f.read()
 
 
 def save_highscore(score):
-    with open(os.path.join(DATA_DIR, 'highscore.txt'), 'w',
+    with open(os.path.join('data', 'highscore.txt'), 'w',
               encoding='utf8') as f:
         f.write(score)
 
@@ -57,7 +50,6 @@ def terminate():
 
 
 def start_screen():
-
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -70,77 +62,151 @@ def start_screen():
 
 
 def main_menu_screen():
-
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
         pygame.display.flip()
         clock.tick(FPS)
+
+
+all_sprites = pygame.sprite.Group()
+cars_group = pygame.sprite.Group()
+logs_group = pygame.sprite.Group()
+turtles_group = pygame.sprite.Group()
+frog_homes_group = pygame.sprite.Group()
 
 
 class Frog(pygame.sprite.Sprite):
     pass
 
 
-class Car(pygame.sprite.Sprite):
+class WrappingSprite(pygame.sprite.Sprite):
 
-    images = []
+    def __init__(self, image, x, y, speed):
+        super(WrappingSprite, self).__init__(all_sprites)
 
+        self.image = load_image(image)
+        self.rect = self.image.get_rect()
+        self.rect = self.rect.move(x, y)
+        self.pos_x = x
+        self.speed = speed
 
-class Log(pygame.sprite.Sprite):
-    pass
-
-
-class Alligator(pygame.sprite.Sprite):
-    pass
-
-
-class Turtles(pygame.sprite.Sprite):
-    pass
-
-
-class DivingTurtle(pygame.sprite.Sprite):
-    pass
-
-
-class Snake(pygame.sprite.Sprite):
-    pass
+    def update(self):
+        self.pos_x += self.speed
+        self.rect.x = self.pos_x
+        if self.rect.x > WIDTH + self.rect.width and self.speed > 0:
+            self.pos_x = 0 - self.rect.width
+            self.rect.x = 0 - self.rect.width
+        elif self.rect.x < 0 - self.rect.width:
+            self.pos_x = WIDTH + self.rect.width
+            self.rect.x = self.pos_x
 
 
-class Otter(pygame.sprite.Sprite):
-    pass
+class Car(WrappingSprite):
+    TYPE_1 = 'car1.png'
+    TYPE_2 = 'car2.png'
+    TYPE_3 = 'car3.png'
+    TYPE_4 = 'car4.png'
+    TYPE_5 = 'car5.png'
+
+    def __init__(self, type_, x, y, speed):
+        super(Car, self).__init__(type_, x, y, speed)
+        self.add(cars_group)
 
 
-class FemaleFrog(pygame.sprite.Sprite):
-    pass
+class Log(WrappingSprite):
+    TYPE_1 = 'log1.png'
+    TYPE_2 = 'log2.png'
+    TYPE_3 = 'log3.png'
+
+    def __init__(self, type_, x, y, speed):
+        super(Log, self).__init__(type_, x, y, speed)
+        self.add(logs_group)
+
+
+class TimerSprite(WrappingSprite):
+
+    def __init__(self, sheet, columns, rows, x, y, speed, delay):
+        super(TimerSprite, self).__init__(sheet, x, y, speed)
+
+        self.frames = []
+        self.cut_sheet(self.image, columns, rows)
+        self.cur_frame = 0
+        self.image = self.frames[self.cur_frame]
+        self.rect = self.rect.move(x, y)
+        self.delay = delay
+        self.timer = self.delay
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.width * i, self.rect.height * j)
+                self.frames.append(sheet.subsurface(pygame.Rect(
+                    frame_location, self.rect.size)))
+
+    def update(self):
+        super(TimerSprite, self).update()
+
+        self.timer -= clock.get_time()
+        if self.timer < 0:
+            self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+            self.image = self.frames[self.cur_frame]
+            self.timer = self.delay
+
+
+class Turtles(TimerSprite):
+    TYPE_1 = 'turtles1.png'
+    TYPE_2 = 'turtles2.png'
+
+    def __init__(self, type_, x, y, speed):
+        super(Turtles, self).__init__(type_, 1, 3, x, y, speed, DELAY)
+        self.add(turtles_group)
+
+
+class DivingTurtles(TimerSprite):
+    TYPE_1 = 'diving-turtles1.png'
+    TYPE_2 = 'diving-turtles2.png'
+
+    def __init__(self, type_, x, y, speed):
+        super(DivingTurtles, self).__init__(type_, 3, 3, x, y, speed, DELAY)
+        self.add(turtles_group)
 
 
 class FrogHome(pygame.sprite.Sprite):
     pass
 
 
-class Insect(pygame.sprite.Sprite):
-    pass
-
-
-class LurkingAlligator(pygame.sprite.Sprite):
-    pass
+Car(Car.TYPE_1, 160, 416, -1)
+Car(Car.TYPE_1, 304, 416, -1)
+Car(Car.TYPE_1, 448, 416, -1)
+Car(Car.TYPE_2, 192, 384, 1.1)
+Car(Car.TYPE_2, 320, 384, 1.1)
+Car(Car.TYPE_2, 448, 384, 1.1)
+Car(Car.TYPE_3, 192, 352, -1.2)
+Car(Car.TYPE_3, 320, 352, -1.2)
+Car(Car.TYPE_3, 448, 352, -1.2)
+Car(Car.TYPE_4, 460, 320, 1.4)
+Car(Car.TYPE_5, 240, 288, -1.5)
+Car(Car.TYPE_5, 416, 288, -1.5)
 
 
 def game_screen():
+    bg = load_image('level-background.png')
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-
+        screen.blit(bg, (0, 0))
         all_sprites.draw(screen)
+        all_sprites.update()
         pygame.display.flip()
         clock.tick(FPS)
 
 
 def game_over_screen():
-
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -152,9 +218,5 @@ def game_over_screen():
         clock.tick(FPS)
 
 
-def main():
-    start_screen()
-
-
 if __name__ == '__main__':
-    main()
+    game_screen()
