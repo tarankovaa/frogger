@@ -5,7 +5,6 @@ import pygame
 
 FPS = 30
 WIDTH, HEIGHT = 448, 512
-DELAY = 500
 
 pygame.init()
 pygame.display.set_caption('Frogger')
@@ -87,21 +86,17 @@ def cut_sheet(sheet, columns, rows):
 
 
 class Frog(pygame.sprite.Sprite):
-    frog_anim = 'frog_anim.png'
-    frog_death = 'death_anim.png'
 
-    def __init__(self, x, y, speed):
+    def __init__(self):
         super(Frog, self).__init__(all_sprites)
 
         self.frames = []
-        self.frames_death = []
-        self.frame_after_death = load_image('after_death.png', -1)
-        self.cut_sheet(load_image(self.frog_anim), 8, 1, self.frog_anim)
-        self.cut_sheet(load_image(self.frog_death, -1), 7, 1, self.frog_death)
-        self.frames_up = self.frames[:2]
-        self.frames_lf = self.frames[2:4]
-        self.frames_dw = self.frames[4:6]
-        self.frames_rh = self.frames[6:]
+        frames = cut_sheet(load_image('frog_anim.png'), 8, 1)
+        self.frames_up = frames[:2]
+        self.frames_lf = frames[2:4]
+        self.frames_dw = frames[4:6]
+        self.frames_rh = frames[6:]
+        self.frames_death = cut_sheet(load_image('death_anim.png'), 7, 1)
         self.cur_frame = 0
         self.cur_frame_death = 0
         self.image = self.frames_up[self.cur_frame]
@@ -109,27 +104,10 @@ class Frog(pygame.sprite.Sprite):
         self.start_x = WIDTH // 2
         self.start_y = HEIGHT - 64
         self.rect = self.rect.move(self.start_x, self.start_y)
-        self.speed = speed
         self.d = 'u'
-        self.t = -1
-        self.timer = 1200
         self.collide = False
-        self.pos_x = x
-
-    def cut_sheet(self, sheet, columns, rows, name):
-        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
-                                sheet.get_height() // rows)
-        for j in range(rows):
-            for i in range(columns):
-                if name == self.frog_anim:
-                    frame_location = (self.rect.w * i, self.rect.h * j)
-                    self.frames.append(sheet.subsurface(pygame.Rect(
-                            frame_location, self.rect.size)))
-                else:
-                    frame_location = (self.rect.w * i, self.rect.h * j)
-                    for _ in range(6):
-                        self.frames_death.append(sheet.subsurface(pygame.Rect(
-                            frame_location, self.rect.size)))
+        self.pos_x = self.start_x
+        self.death_delay = 0
 
     def move(self, *args):
         if not self.collide:
@@ -144,41 +122,42 @@ class Frog(pygame.sprite.Sprite):
                 else:
                     img = self.frames_dw[self.cur_frame]
 
-            if args and args[0].type == pygame.KEYDOWN:
-                x, y = 0, 0
-                if args[0].scancode == 80:
-                    x, y = -32, 0
-                    img = self.frames_lf[self.cur_frame]
-                    self.d = 'l'
-                elif args[0].scancode == 79:
-                    x, y = 32, 0
-                    img = self.frames_rh[self.cur_frame]
-                    self.d = 'r'
-                elif args[0].scancode == 82:
-                    x, y = 0, -32
-                    img = self.frames_up[self.cur_frame]
-                    self.d = 'u'
-                elif args[0].scancode == 81:
-                    x, y = 0, 32
-                    img = self.frames_dw[self.cur_frame]
-                    self.d = 'd'
-                if 0 <= self.rect.x + x < WIDTH and 34 <= self.rect.y + y < HEIGHT - 32:
-                    self.rect = self.rect.move(x, y)
-                    self.pos_x = self.rect.x
-            self.image = img
+                if args and args[0].type == pygame.KEYDOWN:
+                    x, y = 0, 0
+                    if args[0].scancode == 80:
+                        x, y = -32, 0
+                        img = self.frames_lf[self.cur_frame]
+                        self.d = 'l'
+                    elif args[0].scancode == 79:
+                        x, y = 32, 0
+                        img = self.frames_rh[self.cur_frame]
+                        self.d = 'r'
+                    elif args[0].scancode == 82:
+                        x, y = 0, -32
+                        img = self.frames_up[self.cur_frame]
+                        self.d = 'u'
+                    elif args[0].scancode == 81:
+                        x, y = 0, 32
+                        img = self.frames_dw[self.cur_frame]
+                        self.d = 'd'
+                    if 0 <= self.rect.x + x < WIDTH and 34 <= self.rect.y + y < HEIGHT - 32:
+                        self.rect = self.rect.move(x, y)
+                        self.pos_x = self.rect.x
+                self.image = img
 
     def update(self):
         if self.collide:
-            if not self.cur_frame_death:
-                self.t += 1
-            if self.t < 1:
-                self.image = self.frames_death[self.cur_frame_death]
-                self.cur_frame_death = (self.cur_frame_death + 1) % len(self.frames_death)
-            if self.cur_frame_death == 0 and self.t > 0:
-                self.image = self.frame_after_death  # кажется глупое решение
-                self.timer -= clock.get_time()
-                if self.timer < 0:
+            if self.death_delay > 0:
+                self.death_delay -= 1
+            else:
+                if self.cur_frame_death == len(self.frames_death):
+                    self.collide = False
+                    self.cur_frame_death = 0
                     self.restart()
+                else:
+                    self.image = self.frames_death[self.cur_frame_death]
+                    self.cur_frame_death += 1
+                    self.death_delay = 5
         else:
             if pygame.sprite.spritecollideany(self, cars_group, pygame.sprite.collide_mask):
                 self.collide = True
@@ -207,8 +186,6 @@ class Frog(pygame.sprite.Sprite):
         self.rect.y = self.start_y
         self.image = self.frames_up[0]
         self.d = 'u'
-        self.collide = False
-        self.t = -1
 
 
 class WrappingSprite(pygame.sprite.Sprite):
@@ -257,7 +234,7 @@ class Log(WrappingSprite):
 
 class AnimatedWrappingSprite(WrappingSprite):
 
-    def __init__(self, sheet, columns, rows, x, y, speed, delay):
+    def __init__(self, sheet, columns, rows, x, y, speed):
         super(AnimatedWrappingSprite, self).__init__(sheet, x, y, speed)
 
         self.frames = cut_sheet(self.image, columns, rows)
@@ -265,17 +242,16 @@ class AnimatedWrappingSprite(WrappingSprite):
         self.image = self.frames[self.cur_frame]
         self.rect = self.image.get_rect()
         self.rect = self.rect.move(x, y)
-        self.delay = delay
-        self.timer = self.delay
+        self.delay = 15
 
     def update(self):
         super(AnimatedWrappingSprite, self).update()
 
-        self.timer -= clock.get_time()
-        if self.timer < 0:
+        self.delay -= 1
+        if self.delay == 0:
             self.cur_frame = (self.cur_frame + 1) % len(self.frames)
             self.image = self.frames[self.cur_frame]
-            self.timer = self.delay
+            self.delay = 15
 
 
 class Turtles(AnimatedWrappingSprite):
@@ -283,7 +259,7 @@ class Turtles(AnimatedWrappingSprite):
     TYPE_2 = 'turtles2.png'
 
     def __init__(self, type_, x, y, speed):
-        super(Turtles, self).__init__(type_, 1, 3, x, y, speed, DELAY)
+        super(Turtles, self).__init__(type_, 1, 3, x, y, speed)
         self.add(float_group)
 
 
@@ -292,7 +268,7 @@ class DivingTurtles(AnimatedWrappingSprite):
     TYPE_2 = 'diving-turtles2.png'
 
     def __init__(self, type_, x, y, speed):
-        super(DivingTurtles, self).__init__(type_, 3, 3, x, y, speed, DELAY)
+        super(DivingTurtles, self).__init__(type_, 3, 3, x, y, speed)
         self.add(float_group)
 
 
@@ -314,53 +290,54 @@ class FrogHome(pygame.sprite.Sprite):
         self.image = self.states[self.cur_state]
 
 
-Car(Car.TYPE_1, 160, 416, -0.75)
-Car(Car.TYPE_1, 304, 416, -0.75)
-Car(Car.TYPE_1, 448, 416, -0.75)
-
-Car(Car.TYPE_2, 192, 384, 1)
-Car(Car.TYPE_2, 320, 384, 1)
-Car(Car.TYPE_2, 448, 384, 1)
-
-Car(Car.TYPE_3, 192, 352, -1.25)
-Car(Car.TYPE_3, 320, 352, -1.25)
-Car(Car.TYPE_3, 448, 352, -1.25)
-
-Car(Car.TYPE_4, 460, 320, 1.5)
-Car(Car.TYPE_5, 240, 288, -1.75)
-Car(Car.TYPE_5, 416, 288, -1.75)
-
-DivingTurtles(DivingTurtles.TYPE_1, 0, 224, -1.75)
-Turtles(Turtles.TYPE_1, 144, 224, -1.75)
-Turtles(Turtles.TYPE_1, 288, 224, -1.75)
-Turtles(Turtles.TYPE_1, 432, 224, -1.75)
-
-Log(Log.TYPE_1, 64, 192, 0.75)
-Log(Log.TYPE_1, 240, 192, 0.75)
-Log(Log.TYPE_1, 416, 192, 0.75)
-
-Log(Log.TYPE_2, 32, 160, 2.5)
-Log(Log.TYPE_2, 352, 160, 2.5)
-
-DivingTurtles(DivingTurtles.TYPE_2, 80, 128, -1.75)
-Turtles(Turtles.TYPE_2, 208, 128, -1.75)
-Turtles(Turtles.TYPE_2, 336, 128, -1.75)
-Turtles(Turtles.TYPE_2, 464, 128, -1.75)
-
-Log(Log.TYPE_3, 0, 96, 1.5)
-Log(Log.TYPE_3, 208, 96, 1.5)
-Log(Log.TYPE_3, 416, 96, 1.5)
-
-FrogHome(16, 64)
-FrogHome(112, 64)
-FrogHome(208, 64)
-FrogHome(304, 64)
-FrogHome(400, 64)
-
-
 def game_screen():
     bg = load_image('level-background.png')
-    frog = Frog(WIDTH // 2, HEIGHT - 64, 32)
+
+    Car(Car.TYPE_1, 160, 416, -0.75)
+    Car(Car.TYPE_1, 304, 416, -0.75)
+    Car(Car.TYPE_1, 448, 416, -0.75)
+
+    Car(Car.TYPE_2, 192, 384, 1)
+    Car(Car.TYPE_2, 320, 384, 1)
+    Car(Car.TYPE_2, 448, 384, 1)
+
+    Car(Car.TYPE_3, 192, 352, -1.25)
+    Car(Car.TYPE_3, 320, 352, -1.25)
+    Car(Car.TYPE_3, 448, 352, -1.25)
+
+    Car(Car.TYPE_4, 460, 320, 1.5)
+    Car(Car.TYPE_5, 240, 288, -1.75)
+    Car(Car.TYPE_5, 416, 288, -1.75)
+
+    DivingTurtles(DivingTurtles.TYPE_1, 0, 224, -1.75)
+    Turtles(Turtles.TYPE_1, 144, 224, -1.75)
+    Turtles(Turtles.TYPE_1, 288, 224, -1.75)
+    Turtles(Turtles.TYPE_1, 432, 224, -1.75)
+
+    Log(Log.TYPE_1, 64, 192, 0.75)
+    Log(Log.TYPE_1, 240, 192, 0.75)
+    Log(Log.TYPE_1, 416, 192, 0.75)
+
+    Log(Log.TYPE_2, 32, 160, 2.5)
+    Log(Log.TYPE_2, 352, 160, 2.5)
+
+    DivingTurtles(DivingTurtles.TYPE_2, 80, 128, -1.75)
+    Turtles(Turtles.TYPE_2, 208, 128, -1.75)
+    Turtles(Turtles.TYPE_2, 336, 128, -1.75)
+    Turtles(Turtles.TYPE_2, 464, 128, -1.75)
+
+    Log(Log.TYPE_3, 0, 96, 1.5)
+    Log(Log.TYPE_3, 208, 96, 1.5)
+    Log(Log.TYPE_3, 416, 96, 1.5)
+
+    FrogHome(16, 64)
+    FrogHome(112, 64)
+    FrogHome(208, 64)
+    FrogHome(304, 64)
+    FrogHome(400, 64)
+
+    frog = Frog()
+
     k = 0
     while True:
         for event in pygame.event.get():
