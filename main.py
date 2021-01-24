@@ -153,6 +153,7 @@ class Frog(pygame.sprite.Sprite):
                 if self.cur_frame_death == len(self.frames_death):
                     self.collide = False
                     self.cur_frame_death = 0
+                    self.cur_frame = 0
                     self.restart()
                 else:
                     self.image = self.frames_death[self.cur_frame_death]
@@ -175,7 +176,7 @@ class Frog(pygame.sprite.Sprite):
                 if not pygame.sprite.spritecollideany(self, float_group,
                                                       pygame.sprite.collide_mask):
                     self.collide = True
-                if self.rect.x > WIDTH or self.rect.x < 0:
+                if self.rect.x > WIDTH - 8 or self.rect.x < -8:
                     self.collide = True
             elif self.rect.y < 96:
                 if not pygame.sprite.spritecollideany(self, frog_homes_group):
@@ -184,7 +185,7 @@ class Frog(pygame.sprite.Sprite):
     def restart(self):
         self.rect.x = self.start_x
         self.rect.y = self.start_y
-        self.image = self.frames_up[0]
+        self.image = self.frames_up[self.cur_frame]
         self.d = 'u'
 
 
