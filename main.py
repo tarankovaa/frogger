@@ -106,21 +106,23 @@ class Frog(pygame.sprite.Sprite):
         super(Frog, self).__init__(all_sprites)
 
         self.frames = []
+        self.frames_death = []
+        self.frame_after_death = load_image('after_death.png', -1)
+        self.cut_sheet(load_image(self.frog_anim), 8, 1, self.frog_anim)
+        self.cut_sheet(load_image(self.frog_death, -1), 7, 1, self.frog_death)
         self.frames_up = self.frames[:2]
         self.frames_lf = self.frames[2:4]
         self.frames_dw = self.frames[4:6]
         self.frames_rh = self.frames[6:]
-        self.frames_death = []
-        self.cut_sheet(load_image(self.frog_anim, -1), 8, 1, self.frog_anim)
-        self.cut_sheet(load_image(self.frog_death, -1), 7, 1, self.frog_death)
         self.cur_frame = 0
-        self.cur_frame_death = len(self.frames_death) - 1
+        self.cur_frame_death = 0
         self.image = self.frames_up[self.cur_frame]
         self.rect = self.image.get_rect()
         self.rect = self.rect.move(x, y)
         self.speed = speed
         self.d = 'u'
-        self.t = 0
+        self.t = -1
+        self.timer = 1200
         self.collide = False
         self.start_x = x
         self.start_y = y
@@ -179,16 +181,18 @@ class Frog(pygame.sprite.Sprite):
 
     def update(self):
         if self.collide:
-            self.cur_frame_death = (self.cur_frame_death + 1) % len(self.frames_death)
             if not self.cur_frame_death:
                 self.t += 1
-            self.image = self.frames_death[self.cur_frame_death]
-            if self.cur_frame_death == 0 and self.t > 1:
-                self.kill()
+            if self.t < 1:
+                self.image = self.frames_death[self.cur_frame_death]
+                self.cur_frame_death = (self.cur_frame_death + 1) % len(self.frames_death)
+            if self.cur_frame_death == 0 and self.t > 0:
+                self.image = self.frame_after_death # кажется глупое решение
+                self.timer -= clock.get_time()
+                if self.timer < 0:
+                    self.restart()
         else:
             if pygame.sprite.spritecollideany(self, cars_group):
-                self.collide = True
-            elif pygame.sprite.spritecollideany(self, cars_group):
                 self.collide = True
             elif sprite := pygame.sprite.spritecollideany(self, float_group):
                 if sprite.__class__ is DivingTurtles and sprite.cur_frame == 4:
@@ -205,6 +209,9 @@ class Frog(pygame.sprite.Sprite):
         self.rect.x = self.start_x
         self.rect.y = self.start_y
         self.image = self.frames_up[0]
+        self.collide = False
+        self.d = 'u'
+        self.t = -1
 
 
 class WrappingSprite(pygame.sprite.Sprite):
@@ -264,7 +271,6 @@ def cut_sheet(sheet, columns, rows):
 
 
 class AnimatedWrappingSprite(WrappingSprite):
-
     def __init__(self, sheet, columns, rows, x, y, speed, delay):
         super(AnimatedWrappingSprite, self).__init__(sheet, x, y, speed)
 
