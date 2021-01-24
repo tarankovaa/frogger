@@ -33,7 +33,7 @@ def load_image(name, colorkey=None):
 def load_highscore():
     with open(os.path.join('data', 'highscore.txt'), 'r',
               encoding='utf8') as f:
-        return f.read()
+        return int(f.read())
 
 
 def save_highscore(score):
@@ -339,6 +339,13 @@ def game_screen():
 
     frog = Frog()
 
+    font = pygame.font.Font('data/Frogger-Regular.ttf', 16)
+    highscore = load_highscore()
+    score = 0
+    max_y = HEIGHT - 64
+    reached_homes = 0
+    delay = 90
+    completed = 0
     k = 0
     while True:
         for event in pygame.event.get():
@@ -351,9 +358,48 @@ def game_screen():
                     and event.type != pygame.ACTIVEEVENT:
                 if event.type == pygame.KEYDOWN:
                     k = 1 if event.scancode in range(79, 83) else 0
+                    if event.scancode == 82:
+                        if frog.rect.y - 32 < max_y:
+                            score += 10
+                            max_y -= 32
                 frog.move(event, k)
+
+        if len(list(filter(lambda x: x.cur_state == 'reached', frog_homes_group))) > reached_homes:
+            reached_homes += 1
+            score += 50
+            max_y = HEIGHT - 64
+        if reached_homes == 5:
+            if delay == 90:
+                score += 1000
+                completed += 1
+                for frog_home in frog_homes_group:
+                    frog_home.change_state('completed')
+                frog.kill()
+            delay -= 1
+            if delay == 0:
+                for frog_home in frog_homes_group:
+                    frog_home.change_state('empty')
+                delay = 90
+                reached_homes = 0
+                frog = Frog()
+
+        if score > 99999:
+            score = 99999
+        if score > highscore:
+            highscore = score
+
         screen.blit(bg, (0, 0))
         all_sprites.draw(screen)
+        screen.blit(font.render('1-UP', False, pygame.Color('#c3c3d9')), (64, 0))
+        screen.blit(font.render('%(score)05d' % {'score': score}, False,
+                                pygame.Color('#e00000')), (48, 16))
+        screen.blit(font.render('HI-SCORE', False, pygame.Color('#c3c3d9')), (160, 0))
+        screen.blit(font.render('%(highscore)05d' % {'highscore': highscore}, False,
+                                pygame.Color('#e00000')), (176, 16))
+        for i in range(completed):
+            x = WIDTH - 32 - i * 16
+            screen.blit(load_image('completed.png'), (x, HEIGHT - 32))
+
         all_sprites.update()
         pygame.display.flip()
         clock.tick(FPS)
