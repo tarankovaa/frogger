@@ -53,8 +53,7 @@ def start_screen():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.KEYDOWN:
                 game_screen()
         pygame.display.flip()
         clock.tick(FPS)
@@ -89,7 +88,7 @@ def cut_sheet(sheet, columns, rows):
 
 class Frog(pygame.sprite.Sprite):
 
-    def __init__(self, x, y, speed):
+    def __init__(self):
         super(Frog, self).__init__(all_sprites)
 
         frames = cut_sheet(load_image('frog_anim.png'), 8, 1)
@@ -100,12 +99,11 @@ class Frog(pygame.sprite.Sprite):
         self.cur_frame = 0
         self.image = self.frames_up[self.cur_frame]
         self.rect = self.image.get_rect()
-        self.rect = self.rect.move(x, y)
-        self.speed = speed
+        self.start_x = WIDTH // 2
+        self.start_y = HEIGHT - 64
+        self.rect = self.rect.move(self.start_x, self.start_y)
         self.d = 'u'
-        self.start_x = x
-        self.start_y = y
-        self.pos_x = x
+        self.pos_x = self.start_x
         self.collide = False
 
     def move(self, *args):
@@ -123,19 +121,19 @@ class Frog(pygame.sprite.Sprite):
             if args and args[0].type == pygame.KEYDOWN:
                 x, y = 0, 0
                 if args[0].scancode == 80:
-                    x, y = -self.speed, 0
+                    x, y = -32, 0
                     img = self.frames_lf[self.cur_frame]
                     self.d = 'l'
                 elif args[0].scancode == 79:
-                    x, y = self.speed, 0
+                    x, y = 32, 0
                     img = self.frames_rh[self.cur_frame]
                     self.d = 'r'
                 elif args[0].scancode == 82:
-                    x, y = 0, -self.speed
+                    x, y = 0, -32
                     img = self.frames_up[self.cur_frame]
                     self.d = 'u'
                 elif args[0].scancode == 81:
-                    x, y = 0, self.speed
+                    x, y = 0, 32
                     img = self.frames_dw[self.cur_frame]
                     self.d = 'd'
                 if 0 <= self.rect.x + x < WIDTH and 34 <= self.rect.y + y < HEIGHT - 32:
@@ -144,30 +142,33 @@ class Frog(pygame.sprite.Sprite):
             self.image = img
 
     def update(self):
-        if pygame.sprite.spritecollideany(self, cars_group):
-            self.restart()
-        elif sprite := pygame.sprite.spritecollideany(self, float_group):
-            if sprite.__class__ is DivingTurtles and sprite.cur_frame == 4:
-                self.restart()
+        if pygame.sprite.spritecollideany(self, cars_group, pygame.sprite.collide_mask):
+            self.collide = True
+        elif sprite := pygame.sprite.spritecollideany(self, float_group,
+                                                      pygame.sprite.collide_mask):
             self.pos_x += sprite.speed
             self.rect.x = self.pos_x
         elif sprite := pygame.sprite.spritecollideany(self, frog_homes_group):
-            if sprite.cur_state != 'reached':
+            if sprite.cur_state == 'empty':
                 sprite.change_state('reached')
-            self.restart()
+                self.restart()
+            else:
+                self.collide = True
         if 96 <= self.rect.y < 256:
-            if not pygame.sprite.spritecollideany(self, float_group):
-                self.restart()
+            if not pygame.sprite.spritecollideany(self, float_group,
+                                                  pygame.sprite.collide_mask):
+                self.collide = True
             if self.rect.x > WIDTH or self.rect.x < 0:
-                self.restart()
-        if self.rect.y < 96:
+                self.collide = True
+        elif self.rect.y < 96:
             if not pygame.sprite.spritecollideany(self, frog_homes_group):
-                self.restart()
+                self.collide = True
 
     def restart(self):
         self.rect.x = self.start_x
         self.rect.y = self.start_y
         self.image = self.frames_up[0]
+        self.d = 'u'
 
 
 class WrappingSprite(pygame.sprite.Sprite):
@@ -299,7 +300,7 @@ Log(Log.TYPE_1, 240, 192, 0.75)
 Log(Log.TYPE_1, 416, 192, 0.75)
 
 Log(Log.TYPE_2, 32, 160, 2.5)
-Log(Log.TYPE_2, 320, 160, 2.5)
+Log(Log.TYPE_2, 352, 160, 2.5)
 
 DivingTurtles(DivingTurtles.TYPE_2, 80, 128, -1.75)
 Turtles(Turtles.TYPE_2, 208, 128, -1.75)
@@ -319,7 +320,7 @@ FrogHome(400, 64)
 
 def game_screen():
     bg = load_image('level-background.png')
-    frog = Frog(WIDTH // 2, HEIGHT - 64, 32)
+    frog = Frog()
     k = 0
     while True:
         for event in pygame.event.get():
