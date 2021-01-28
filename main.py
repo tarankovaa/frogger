@@ -176,7 +176,7 @@ class Frog(pygame.sprite.Sprite):
                 if not pygame.sprite.spritecollideany(self, float_group,
                                                       pygame.sprite.collide_mask):
                     self.collide = True
-                if self.rect.x > WIDTH - 8 or self.rect.x < -8:
+                if self.rect.x + 32 > WIDTH or self.rect.x < 0:
                     self.collide = True
             elif self.rect.y < 96:
                 if not pygame.sprite.spritecollideany(self, frog_homes_group):
@@ -346,6 +346,7 @@ def game_screen():
     reached_homes = 0
     delay = 90
     completed = 0
+    timer = 50000
     k = 0
     while True:
         for event in pygame.event.get():
@@ -358,16 +359,26 @@ def game_screen():
                     and event.type != pygame.ACTIVEEVENT:
                 if event.type == pygame.KEYDOWN:
                     k = 1 if event.scancode in range(79, 83) else 0
-                    if event.scancode == 82:
-                        if frog.rect.y - 32 < max_y:
-                            score += 10
-                            max_y -= 32
                 frog.move(event, k)
 
+        if timer < 0:
+            frog.collide = True
+            timer = 0
+        elif timer == 0 and not frog.collide and reached_homes < 5:
+            timer = 50000
+        elif timer != 0 and reached_homes < 5:
+            timer -= clock.get_time()
+
+        if frog.rect.y == max_y - 32:
+            score += 10
+            max_y -= 32
         if len(list(filter(lambda x: x.cur_state == 'reached', frog_homes_group))) > reached_homes:
             reached_homes += 1
             score += 50
+            score += round(timer / 1000) * 10
             max_y = HEIGHT - 64
+            if reached_homes != 5:
+                timer = 50000
         if reached_homes == 5:
             if delay == 90:
                 score += 1000
@@ -382,6 +393,7 @@ def game_screen():
                 delay = 90
                 reached_homes = 0
                 frog = Frog()
+                timer = 50000
 
         if score > 99999:
             score = 99999
@@ -396,6 +408,10 @@ def game_screen():
         screen.blit(font.render('HI-SCORE', False, pygame.Color('#c3c3d9')), (160, 0))
         screen.blit(font.render('%(highscore)05d' % {'highscore': highscore}, False,
                                 pygame.Color('#e00000')), (176, 16))
+        screen.blit(font.render('TIME', False, pygame.Color('#e0e000')), (WIDTH - 64, HEIGHT - 16))
+        pygame.draw.rect(screen, pygame.Color('#1dc300' if timer > 5000 else '#e00000'),
+                         pygame.Rect(WIDTH - 64 - 32 * 7.5 / 50000 * timer, HEIGHT - 16,
+                                     32 * 7.5 / 50000 * timer, 16))
         for i in range(completed):
             x = WIDTH - 32 - i * 16
             screen.blit(load_image('completed.png'), (x, HEIGHT - 32))
