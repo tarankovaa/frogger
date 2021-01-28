@@ -71,6 +71,7 @@ all_sprites = pygame.sprite.Group()
 cars_group = pygame.sprite.Group()
 float_group = pygame.sprite.Group()
 frog_homes_group = pygame.sprite.Group()
+frog_group = pygame.sprite.Group()
 
 
 def cut_sheet(sheet, columns, rows):
@@ -88,7 +89,7 @@ def cut_sheet(sheet, columns, rows):
 class Frog(pygame.sprite.Sprite):
 
     def __init__(self):
-        super(Frog, self).__init__(all_sprites)
+        super(Frog, self).__init__(all_sprites, frog_group)
 
         self.frames = []
         frames = cut_sheet(load_image('frog_anim.png'), 8, 1)
@@ -344,9 +345,10 @@ def game_screen():
     score = 0
     max_y = HEIGHT - 64
     reached_homes = 0
-    delay = 90
     completed = 0
     timer = 50000
+    message_timer = 0
+    message = ''
     k = 0
     while True:
         for event in pygame.event.get():
@@ -375,22 +377,27 @@ def game_screen():
         if len(list(filter(lambda x: x.cur_state == 'reached', frog_homes_group))) > reached_homes:
             reached_homes += 1
             score += 50
-            score += round(timer / 1000) * 10
+            rest_time = round(timer / 1000)
+            score += rest_time * 10
+            message = 'TIME %(rest_time)02d' % {'rest_time': rest_time}
             max_y = HEIGHT - 64
             if reached_homes != 5:
                 timer = 50000
+                message_timer = 4000
+            else:
+                message_timer = 5000
         if reached_homes == 5:
-            if delay == 90:
+            if message_timer == 5000:
                 score += 1000
                 completed += 1
                 for frog_home in frog_homes_group:
                     frog_home.change_state('completed')
                 frog.kill()
-            delay -= 1
-            if delay == 0:
+            if message_timer < 0:
                 for frog_home in frog_homes_group:
                     frog_home.change_state('empty')
-                delay = 90
+                message_timer = 4000
+                message = 'START'
                 reached_homes = 0
                 frog = Frog()
                 timer = 50000
@@ -415,6 +422,15 @@ def game_screen():
         for i in range(completed):
             x = WIDTH - 32 - i * 16
             screen.blit(load_image('completed.png'), (x, HEIGHT - 32))
+        if message_timer > 0:
+            message_timer -= clock.get_time()
+            pygame.draw.rect(screen, pygame.Color('black'),
+                             pygame.Rect(32 * 5.5, 32 * 8.5, 32 * 3.5, 16))
+            render = font.render(message, False, pygame.Color('#e00000'))
+            screen.blit(render, (32 * 5.5 + (32 * 3.5 / 2 - render.get_width() / 2), 32 * 8.5))
+            frog_group.draw(screen)
+        elif message_timer < 0:
+            message_timer = 0
 
         all_sprites.update()
         pygame.display.flip()
