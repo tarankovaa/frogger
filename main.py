@@ -71,7 +71,6 @@ all_sprites = pygame.sprite.Group()
 cars_group = pygame.sprite.Group()
 float_group = pygame.sprite.Group()
 frog_homes_group = pygame.sprite.Group()
-frog_group = pygame.sprite.Group()
 
 
 def cut_sheet(sheet, columns, rows):
@@ -89,78 +88,96 @@ def cut_sheet(sheet, columns, rows):
 class Frog(pygame.sprite.Sprite):
 
     def __init__(self):
-        super(Frog, self).__init__(all_sprites, frog_group)
+        super(Frog, self).__init__(all_sprites)
 
-        self.frames = []
         frames = cut_sheet(load_image('frog_anim.png'), 8, 1)
-        self.frames_up = frames[:2]
-        self.frames_lf = frames[2:4]
-        self.frames_dw = frames[4:6]
-        self.frames_rh = frames[6:]
+        self.frames = {'u': frames[:2],
+                       'l': frames[2:4],
+                       'd': frames[4:6],
+                       'r': frames[6:]}
         self.frames_death = cut_sheet(load_image('death_anim.png'), 7, 1)
         self.cur_frame = 0
         self.cur_frame_death = 0
-        self.image = self.frames_up[self.cur_frame]
+        self.dest = 'u'
+        self.image = self.frames[self.dest][self.cur_frame]
         self.rect = self.image.get_rect()
         self.start_x = WIDTH // 2
         self.start_y = HEIGHT - 64
         self.rect = self.rect.move(self.start_x, self.start_y)
-        self.d = 'u'
         self.collide = False
         self.pos_x = self.start_x
+        self.pos_y = self.start_y
         self.death_delay = 0
+        self.move_delay = 1
+        self.moving = False
 
-    def move(self, *args):
-        if not self.collide:
-            if args[1]:
-                self.cur_frame = (self.cur_frame + 1) % len(self.frames_up)
-                if self.d == 'l':
-                    img = self.frames_lf[self.cur_frame]
-                elif self.d == 'r':
-                    img = self.frames_rh[self.cur_frame]
-                elif self.d == 'u':
-                    img = self.frames_up[self.cur_frame]
-                else:
-                    img = self.frames_dw[self.cur_frame]
-
-                if args and args[0].type == pygame.KEYDOWN:
-                    x, y = 0, 0
-                    if args[0].scancode == 80:
-                        x, y = -32, 0
-                        img = self.frames_lf[self.cur_frame]
-                        self.d = 'l'
-                    elif args[0].scancode == 79:
-                        x, y = 32, 0
-                        img = self.frames_rh[self.cur_frame]
-                        self.d = 'r'
-                    elif args[0].scancode == 82:
-                        x, y = 0, -32
-                        img = self.frames_up[self.cur_frame]
-                        self.d = 'u'
-                    elif args[0].scancode == 81:
-                        x, y = 0, 32
-                        img = self.frames_dw[self.cur_frame]
-                        self.d = 'd'
-                    if 0 <= self.rect.x + x < WIDTH and 34 <= self.rect.y + y < HEIGHT - 32:
-                        self.rect = self.rect.move(x, y)
-                        self.pos_x = self.rect.x
-                self.image = img
+    def move(self, scancode):
+        if not self.collide and not self.moving:
+            if scancode == 79:
+                if not self.rect.x + 32 >= WIDTH:
+                    self.dest = 'r'
+                    self.rect.x += 16
+                    self.pos_x = self.rect.x
+                    self.cur_frame = 1
+                    self.image = self.frames[self.dest][self.cur_frame]
+                    self.moving = True
+            elif scancode == 80:
+                if not self.rect.x - 32 < 0:
+                    self.dest = 'l'
+                    self.rect.x -= 16
+                    self.pos_x = self.rect.x
+                    self.cur_frame = 1
+                    self.image = self.frames[self.dest][self.cur_frame]
+                    self.moving = True
+            elif scancode == 81:
+                if not self.rect.y + 32 > HEIGHT - 64:
+                    self.dest = 'd'
+                    self.rect.y += 16
+                    self.cur_frame = 1
+                    self.image = self.frames[self.dest][self.cur_frame]
+                    self.moving = True
+            else:
+                self.dest = 'u'
+                self.rect.y -= 16
+                self.cur_frame = 1
+                self.image = self.frames[self.dest][self.cur_frame]
+                self.moving = True
 
     def update(self):
         if self.collide:
+            if self.moving:
+                self.moving = False
+                self.move_delay = 1
             if self.death_delay > 0:
                 self.death_delay -= 1
             else:
                 if self.cur_frame_death == len(self.frames_death):
                     self.collide = False
                     self.cur_frame_death = 0
-                    self.cur_frame = 0
                     self.restart()
                 else:
                     self.image = self.frames_death[self.cur_frame_death]
                     self.cur_frame_death += 1
                     self.death_delay = 5
         else:
+            if self.moving:
+                if self.move_delay > 0:
+                    self.move_delay -= 1
+                else:
+                    self.cur_frame = 0
+                    self.image = self.frames[self.dest][self.cur_frame]
+                    if self.dest == 'u':
+                        self.rect.y -= 16
+                    elif self.dest == 'd':
+                        self.rect.y += 16
+                    elif self.dest == 'l':
+                        self.rect.x -= 16
+                        self.pos_x = self.rect.x
+                    elif self.dest == 'r':
+                        self.rect.x += 16
+                        self.pos_x = self.rect.x
+                    self.move_delay = 1
+                    self.moving = False
             if pygame.sprite.spritecollideany(self, cars_group, pygame.sprite.collide_mask):
                 self.collide = True
             elif sprite := pygame.sprite.spritecollideany(self, float_group,
@@ -185,9 +202,11 @@ class Frog(pygame.sprite.Sprite):
 
     def restart(self):
         self.rect.x = self.start_x
+        self.pos_x = self.rect.x
         self.rect.y = self.start_y
-        self.image = self.frames_up[self.cur_frame]
-        self.d = 'u'
+        self.dest = 'u'
+        self.cur_frame = 0
+        self.image = self.frames[self.dest][self.cur_frame]
 
 
 class WrappingSprite(pygame.sprite.Sprite):
@@ -349,27 +368,27 @@ def game_screen():
     timer = 50000
     message_timer = 0
     message = ''
-    k = 0
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            if event.type != pygame.MOUSEMOTION and event.type != pygame.WINDOWENTER \
-                    and event.type != pygame.WINDOWLEAVE \
-                    and event.type != pygame.MOUSEBUTTONDOWN and event.type != pygame.MOUSEBUTTONUP \
-                    and event.type != pygame.WINDOWEXPOSED and event.type != pygame.WINDOWHIDDEN \
-                    and event.type != pygame.ACTIVEEVENT:
-                if event.type == pygame.KEYDOWN:
-                    k = 1 if event.scancode in range(79, 83) else 0
-                frog.move(event, k)
+            if event.type == pygame.KEYDOWN:
+                if event.scancode in range(79, 83):
+                    frog.move(event.scancode)
 
         if timer < 0:
             frog.collide = True
             timer = 0
-        elif timer == 0 and not frog.collide and reached_homes < 5:
-            timer = 50000
-        elif timer != 0 and reached_homes < 5:
-            timer -= clock.get_time()
+        if not frog.collide and reached_homes < 5:
+            if timer == 0:
+                timer = 50000
+            else:
+                timer -= clock.get_time()
+
+        if message_timer > 0:
+            message_timer -= clock.get_time()
+        elif message_timer < 0:
+            message_timer = 0
 
         if frog.rect.y == max_y - 32:
             score += 10
@@ -408,6 +427,11 @@ def game_screen():
             highscore = score
 
         screen.blit(bg, (0, 0))
+        if message_timer > 0:
+            pygame.draw.rect(screen, pygame.Color('black'),
+                             pygame.Rect(32 * 5.5, 32 * 8.5, 32 * 3.5, 16))
+            render = font.render(message, False, pygame.Color('#e00000'))
+            screen.blit(render, (32 * 5.5 + (32 * 3.5 / 2 - render.get_width() / 2), 32 * 8.5))
         all_sprites.draw(screen)
         screen.blit(font.render('1-UP', False, pygame.Color('#c3c3d9')), (64, 0))
         screen.blit(font.render('%(score)05d' % {'score': score}, False,
@@ -422,15 +446,6 @@ def game_screen():
         for i in range(completed):
             x = WIDTH - 32 - i * 16
             screen.blit(load_image('completed.png'), (x, HEIGHT - 32))
-        if message_timer > 0:
-            message_timer -= clock.get_time()
-            pygame.draw.rect(screen, pygame.Color('black'),
-                             pygame.Rect(32 * 5.5, 32 * 8.5, 32 * 3.5, 16))
-            render = font.render(message, False, pygame.Color('#e00000'))
-            screen.blit(render, (32 * 5.5 + (32 * 3.5 / 2 - render.get_width() / 2), 32 * 8.5))
-            frog_group.draw(screen)
-        elif message_timer < 0:
-            message_timer = 0
 
         all_sprites.update()
         pygame.display.flip()
