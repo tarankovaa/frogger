@@ -5,6 +5,7 @@ import pygame
 
 FPS = 30
 WIDTH, HEIGHT = 448, 512
+LIFES = 6
 
 pygame.init()
 pygame.display.set_caption('Frogger')
@@ -245,12 +246,31 @@ class Frog(pygame.sprite.Sprite):
                     self.collide = True
 
     def restart(self):
+        global LIFES
         self.rect.x = self.start_x
         self.pos_x = self.rect.x
         self.rect.y = self.start_y
         self.dest = 'u'
         self.cur_frame = 0
         self.image = self.frames[self.dest][self.cur_frame]
+        LIFES -= 1
+
+
+lifes_spritegroup = pygame.sprite.Group()
+
+
+class Life(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super(Life, self).__init__(all_sprites, lifes_spritegroup)
+        self.image = load_image('life.png')
+        self.rect = self.image.get_rect()
+        self.rect = self.rect.move(x, y)
+
+    def update(self):
+        global LIFES
+        sprts = lifes_spritegroup.sprites()
+        if len(lifes_spritegroup) > LIFES:
+            sprts[-1].kill()
 
 
 class WrappingSprite(pygame.sprite.Sprite):
@@ -364,6 +384,9 @@ def game_screen():
     global score
 
     bg = load_image('level-background.png')
+
+    for i in range(LIFES):
+        Life(16 * i, HEIGHT - 32)
 
     Car(Car.TYPE_1, 160, 416, -0.75)
     Car(Car.TYPE_1, 304, 416, -0.75)
