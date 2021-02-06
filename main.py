@@ -11,6 +11,7 @@ pygame.display.set_caption('Frogger')
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
+font = pygame.font.Font('data/Frogger-Regular.ttf', 16)
 
 
 def load_image(name, colorkey=None):
@@ -47,22 +48,65 @@ def terminate():
     sys.exit()
 
 
+def welcome_screen():
+    background = load_image('background.png')
+    img = load_image('start-screen.png')
+
+    frames = []
+    for j in range(2):
+        for i in range(7):
+            frames.append(img.subsurface(0, j * 32, 32 + i * 48, 32))
+    cur_frame = 0
+    timer = 1000
+    animating = True
+
+    screen.blit(background, (0, 0))
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN:
+                if animating:
+                    animating = False
+                    cur_frame = len(frames) - 1
+                    timer = 1000
+                else:
+                    start_screen()
+        if animating:
+            if timer <= 0:
+                if cur_frame < len(frames ) - 1:
+                    cur_frame += 1
+                else:
+                    animating = False
+                timer = 1000
+        else:
+            if timer <= 0:
+                start_screen()
+        screen.blit(frames[cur_frame], (64, 240))
+        pygame.display.flip()
+        timer -= clock.get_time()
+        clock.tick(FPS)
+
+
 def start_screen():
+    background = load_image('background.png')
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
             elif event.type == pygame.KEYDOWN:
                 game_screen()
-        pygame.display.flip()
-        clock.tick(FPS)
-
-
-def main_menu_screen():
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                terminate()
+        screen.blit(background, (0, 0))
+        screen.blit(font.render('1-UP', False, pygame.Color('#c3c3d9')), (64, 0))
+        screen.blit(font.render('%(score)05d' % {'score': score}, False,
+                                pygame.Color('#e00000')), (48, 16))
+        screen.blit(font.render('HI-SCORE', False, pygame.Color('#c3c3d9')), (160, 0))
+        screen.blit(font.render('%(highscore)05d' % {'highscore': highscore}, False,
+                                pygame.Color('#e00000')), (176, 16))
+        screen.blit(font.render('PUSH', False, pygame.Color('#c3c3d9')),
+                    (192, 3.5 * 32))
+        screen.blit(font.render('START BUTTON', False, pygame.Color('#e03ed9')),
+                    (128, 6 * 32))
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -311,7 +355,14 @@ class FrogHome(pygame.sprite.Sprite):
         self.image = self.states[self.cur_state]
 
 
+highscore = load_highscore()
+score = 0
+
+
 def game_screen():
+    global highscore
+    global score
+
     bg = load_image('level-background.png')
 
     Car(Car.TYPE_1, 160, 416, -0.75)
@@ -359,9 +410,6 @@ def game_screen():
 
     frog = Frog()
 
-    font = pygame.font.Font('data/Frogger-Regular.ttf', 16)
-    highscore = load_highscore()
-    score = 0
     max_y = HEIGHT - 64
     reached_homes = 0
     completed = 0
@@ -452,17 +500,5 @@ def game_screen():
         clock.tick(FPS)
 
 
-def game_over_screen():
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                start_screen()
-        pygame.display.flip()
-        clock.tick(FPS)
-
-
 if __name__ == '__main__':
-    game_screen()
+    welcome_screen()
