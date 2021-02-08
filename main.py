@@ -1,6 +1,6 @@
 import os
 import sys
-
+import random as rd
 import pygame
 
 FPS = 30
@@ -390,6 +390,16 @@ def game_screen():
     for i in range(LIFES):
         Life(16 * i, HEIGHT - 32)
 
+    # xc1_1, xc1_2, xc1_3 = rd.randint(0, 160), rd.randint(161, 304), rd.randint(305, WIDTH)
+    # xc2_1, xc2_2, xc2_3 = rd.randint(0, 192), rd.randint(193, 320), rd.randint(321, WIDTH)
+    # xc3_1, xc3_2, xc3_3 = rd.randint(0, 192), rd.randint(193, 320), rd.randint(321, WIDTH)
+    # xc4_1, xc4_2, xc4_3 = rd.randint(0, 240), rd.randint(241, 416), rd.randint(417, WIDTH)
+    # xtt1, xdt, xtt2, xtt3 = rd.randint(0, 144), rd.randint(145, 224), rd.randint(225, 288), rd.randint(400, WIDTH)
+    # xll1_1, xll1_2, xll1_3 = rd.randint(0, 64), rd.randint(64, 240), rd.randint(300, WIDTH)
+    # xll2_1, xll2_2 = rd.randint(0, 32), rd.randint(33, WIDTH)
+    # xt1, xt2, xt3, xt4 = rd.randint(0, 80), rd.randint(81, 208), rd.randint(209, 336), rd.randint(337, WIDTH)
+    # xl1, xl2, xl3 = rd.randint(0, 207), rd.randint(208, 415), rd.randint(416, WIDTH)
+
     Car(Car.TYPE_1, 160, 416, -0.75)
     Car(Car.TYPE_1, 304, 416, -0.75)
     Car(Car.TYPE_1, 448, 416, -0.75)
@@ -537,16 +547,13 @@ def game_screen():
 def game_over_screen():
     font = pygame.font.Font('data/Frogger-Regular.ttf', 16)
     timer = 2000
-    timer_rank = 2000
+    timer_rank = 5000
     pos = (WIDTH, 0)
     bg = load_image('background.png')
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                start_screen()
         if timer > 0:
             pygame.draw.rect(screen, pygame.Color('#000047'),
                              pygame.Rect(32 * 5, 32 * 8, 32 * 4.5, 16))
@@ -557,13 +564,36 @@ def game_over_screen():
             timer -= clock.get_time()
         if timer < 0:
             if WIDTH - pos[0] <= WIDTH:
-                pos = (pos[0] - 8, pos[1])
+                pos = (pos[0] - 12, pos[1])
                 screen.blit(bg, pos)
             else:
                 if timer_rank > 0:
                     render = font.render("SCORE RANKING", False, pygame.Color('#E5D500'))
                     screen.blit(render, (32 * 5.5 + (32 * 3.5 / 2 - render.get_width() / 2), 32 * 6 - 15))
-                    timer -= clock.get_time()
+                    screen.blit(font.render(f'1 ST   {highscore} PTS', False, pygame.Color('#F454DD')),
+                                (32 * 4.5 + (32 * 3.5 / 2 - render.get_width() / 2), 32 * 6.5 + 10))
+                    screen.blit(font.render('1-UP', False, pygame.Color('#c3c3d9')), (64, 0))
+                    screen.blit(font.render('%(score)05d' % {'score': score}, False,
+                                            pygame.Color('#e00000')), (48, 16))
+                    screen.blit(font.render('HI-SCORE', False, pygame.Color('#c3c3d9')), (160, 0))
+                    screen.blit(font.render('%(highscore)05d' % {'highscore': highscore}, False,
+                                            pygame.Color('#e00000')), (176, 16))
+                    screen.blit(font.render('%(highscore)05d' % {'highscore': highscore}, False,
+                                            pygame.Color('#e00000')), (176, 16))
+                    render = font.render("COPIED BY STEPA AND NASTYA", False, pygame.Color('#9493A3'))
+                    screen.blit(render, (32 * 5.5 + (32 * 3.5 / 2 - render.get_width() / 2), HEIGHT - 40))
+                    timer_rank -= clock.get_time()
+                else:
+                    global GAME_OVER, LIFES, all_sprites, cars_group, \
+                        float_group, frog_homes_group, lifes_spritegroup
+                    GAME_OVER = 0
+                    LIFES = 6
+                    all_sprites = pygame.sprite.Group()
+                    cars_group = pygame.sprite.Group()
+                    float_group = pygame.sprite.Group()
+                    frog_homes_group = pygame.sprite.Group()
+                    lifes_spritegroup = pygame.sprite.Group()
+                    start_screen()
         pygame.display.flip()
         clock.tick(FPS)
 
