@@ -1,12 +1,10 @@
 import os
 import sys
-import random as rd
+
 import pygame
 
 FPS = 30
 WIDTH, HEIGHT = 448, 512
-LIFES = 6
-GAME_OVER = 0
 
 pygame.init()
 pygame.display.set_caption('Frogger')
@@ -42,7 +40,7 @@ def load_highscore():
 def save_highscore(score):
     with open(os.path.join('data', 'highscore.txt'), 'w',
               encoding='utf8') as f:
-        f.write(score)
+        f.write(str(score))
 
 
 def terminate():
@@ -59,30 +57,18 @@ def welcome_screen():
         for i in range(7):
             frames.append(img.subsurface(0, j * 32, 32 + i * 48, 32))
     cur_frame = 0
-    timer = 1000
-    animating = True
+    timer = 750
 
     screen.blit(background, (0, 0))
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 terminate()
-            elif event.type == pygame.KEYDOWN:
-                if animating:
-                    animating = False
-                    cur_frame = len(frames) - 1
-                    timer = 1000
-                else:
-                    start_screen()
-        if animating:
-            if timer <= 0:
-                if cur_frame < len(frames ) - 1:
-                    cur_frame += 1
-                else:
-                    animating = False
-                timer = 1000
-        else:
-            if timer <= 0:
+        if timer <= 0:
+            if cur_frame < len(frames) - 1:
+                cur_frame += 1
+                timer = 750
+            else:
                 start_screen()
         screen.blit(frames[cur_frame], (64, 240))
         pygame.display.flip()
@@ -99,16 +85,18 @@ def start_screen():
             elif event.type == pygame.KEYDOWN:
                 game_screen()
         screen.blit(background, (0, 0))
-        screen.blit(font.render('1-UP', False, pygame.Color('#c3c3d9')), (64, 0))
+        screen.blit(font.render('1-UP', False, pygame.Color('#c3c3d9')),
+                    (64, 0))
         screen.blit(font.render('%(score)05d' % {'score': score}, False,
                                 pygame.Color('#e00000')), (48, 16))
-        screen.blit(font.render('HI-SCORE', False, pygame.Color('#c3c3d9')), (160, 0))
-        screen.blit(font.render('%(highscore)05d' % {'highscore': highscore}, False,
-                                pygame.Color('#e00000')), (176, 16))
+        screen.blit(font.render('HI-SCORE', False, pygame.Color('#c3c3d9')),
+                    (160, 0))
+        screen.blit(font.render('%(highscore)05d' % {'highscore': highscore},
+                                False, pygame.Color('#e00000')), (176, 16))
         screen.blit(font.render('PUSH', False, pygame.Color('#c3c3d9')),
                     (192, 3.5 * 32))
-        screen.blit(font.render('START BUTTON', False, pygame.Color('#e03ed9')),
-                    (128, 6 * 32))
+        screen.blit(font.render('START BUTTON', False,
+                                pygame.Color('#e03ed9')), (128, 6 * 32))
         pygame.display.flip()
         clock.tick(FPS)
 
@@ -117,6 +105,7 @@ all_sprites = pygame.sprite.Group()
 cars_group = pygame.sprite.Group()
 float_group = pygame.sprite.Group()
 frog_homes_group = pygame.sprite.Group()
+lives_group = pygame.sprite.Group()
 
 
 def cut_sheet(sheet, columns, rows):
@@ -224,21 +213,23 @@ class Frog(pygame.sprite.Sprite):
                         self.pos_x = self.rect.x
                     self.move_delay = 1
                     self.moving = False
-            if pygame.sprite.spritecollideany(self, cars_group, pygame.sprite.collide_mask):
+            if pygame.sprite.spritecollideany(self, cars_group,
+                                              pygame.sprite.collide_mask):
                 self.collide = True
-            elif sprite := pygame.sprite.spritecollideany(self, float_group,
-                                                          pygame.sprite.collide_mask):
+            elif sprite := pygame.sprite.spritecollideany(
+                    self, float_group, pygame.sprite.collide_mask):
                 self.pos_x += sprite.speed
                 self.rect.x = self.pos_x
-            elif sprite := pygame.sprite.spritecollideany(self, frog_homes_group):
+            elif sprite := pygame.sprite.spritecollideany(
+                    self, frog_homes_group):
                 if sprite.cur_state == 'empty':
                     sprite.change_state('reached')
                     self.restart()
                 else:
                     self.collide = True
             if 96 <= self.rect.y < 256:
-                if not pygame.sprite.spritecollideany(self, float_group,
-                                                      pygame.sprite.collide_mask):
+                if not pygame.sprite.spritecollideany(
+                        self, float_group, pygame.sprite.collide_mask):
                     self.collide = True
                 if self.rect.x + 32 > WIDTH or self.rect.x < 0:
                     self.collide = True
@@ -247,30 +238,25 @@ class Frog(pygame.sprite.Sprite):
                     self.collide = True
 
     def restart(self):
-        global LIFES
         self.rect.x = self.start_x
         self.pos_x = self.rect.x
         self.rect.y = self.start_y
         self.dest = 'u'
         self.cur_frame = 0
         self.image = self.frames[self.dest][self.cur_frame]
-        LIFES -= 1
-
-
-lifes_spritegroup = pygame.sprite.Group()
 
 
 class Life(pygame.sprite.Sprite):
     def __init__(self, x, y):
-        super(Life, self).__init__(all_sprites, lifes_spritegroup)
+        super(Life, self).__init__(all_sprites, lives_group)
         self.image = load_image('life.png')
         self.rect = self.image.get_rect()
         self.rect = self.rect.move(x, y)
 
     def update(self):
-        global LIFES
-        sprts = lifes_spritegroup.sprites()
-        if len(lifes_spritegroup) > LIFES:
+        global lives
+        sprts = lives_group.sprites()
+        if len(lives_group) > lives:
             sprts[-1].kill()
 
 
@@ -378,27 +364,16 @@ class FrogHome(pygame.sprite.Sprite):
 
 highscore = load_highscore()
 score = 0
+lives = 6
 
 
 def game_screen():
-    global highscore
-    global score
-    global GAME_OVER
+    global highscore, score, lives
 
     bg = load_image('level-background.png')
 
-    for i in range(LIFES):
+    for i in range(lives):
         Life(16 * i, HEIGHT - 32)
-
-    # xc1_1, xc1_2, xc1_3 = rd.randint(0, 160), rd.randint(161, 304), rd.randint(305, WIDTH)
-    # xc2_1, xc2_2, xc2_3 = rd.randint(0, 192), rd.randint(193, 320), rd.randint(321, WIDTH)
-    # xc3_1, xc3_2, xc3_3 = rd.randint(0, 192), rd.randint(193, 320), rd.randint(321, WIDTH)
-    # xc4_1, xc4_2, xc4_3 = rd.randint(0, 240), rd.randint(241, 416), rd.randint(417, WIDTH)
-    # xtt1, xdt, xtt2, xtt3 = rd.randint(0, 144), rd.randint(145, 224), rd.randint(225, 288), rd.randint(400, WIDTH)
-    # xll1_1, xll1_2, xll1_3 = rd.randint(0, 64), rd.randint(64, 240), rd.randint(300, WIDTH)
-    # xll2_1, xll2_2 = rd.randint(0, 32), rd.randint(33, WIDTH)
-    # xt1, xt2, xt3, xt4 = rd.randint(0, 80), rd.randint(81, 208), rd.randint(209, 336), rd.randint(337, WIDTH)
-    # xl1, xl2, xl3 = rd.randint(0, 207), rd.randint(208, 415), rd.randint(416, WIDTH)
 
     Car(Car.TYPE_1, 160, 416, -0.75)
     Car(Car.TYPE_1, 304, 416, -0.75)
@@ -453,100 +428,113 @@ def game_screen():
     message_timer = 0
     message = ''
     while True:
-        if not GAME_OVER:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    terminate()
-                if event.type == pygame.KEYDOWN:
-                    if event.scancode in range(79, 83):
-                        frog.move(event.scancode)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            if event.type == pygame.KEYDOWN:
+                if event.scancode in range(79, 83):
+                    frog.move(event.scancode)
 
-            if timer < 0:
-                frog.collide = True
-                timer = 0
-            if not frog.collide and reached_homes < 5:
-                if timer == 0:
-                    timer = 50000
-                else:
-                    timer -= clock.get_time()
-
-            if message_timer > 0:
-                message_timer -= clock.get_time()
-            elif message_timer < 0:
-                message_timer = 0
-
-            if frog.rect.y == max_y - 32:
-                score += 10
-                max_y -= 32
-            if len(list(filter(lambda x: x.cur_state == 'reached', frog_homes_group))) > reached_homes:
-                reached_homes += 1
-                score += 50
-                rest_time = round(timer / 1000)
-                score += rest_time * 10
-                message = 'TIME %(rest_time)02d' % {'rest_time': rest_time}
-                max_y = HEIGHT - 64
-                if reached_homes != 5:
-                    timer = 50000
-                    message_timer = 4000
-                else:
-                    message_timer = 5000
-            if reached_homes == 5:
-                if message_timer == 5000:
-                    score += 1000
-                    completed += 1
-                    for frog_home in frog_homes_group:
-                        frog_home.change_state('completed')
-                    frog.kill()
-                if message_timer < 0:
-                    for frog_home in frog_homes_group:
-                        frog_home.change_state('empty')
-                    message_timer = 4000
-                    message = 'START'
-                    reached_homes = 0
-                    frog = Frog()
-                    timer = 50000
-
-            if score > 99999:
-                score = 99999
-            if score > highscore:
-                highscore = score
-
-            screen.blit(bg, (0, 0))
-            if message_timer > 0:
-                pygame.draw.rect(screen, pygame.Color('black'),
-                                 pygame.Rect(32 * 5.5, 32 * 8.5, 32 * 3.5, 16))
-                render = font.render(message, False, pygame.Color('#e00000'))
-                screen.blit(render, (32 * 5.5 + (32 * 3.5 / 2 - render.get_width() / 2), 32 * 8.5))
-            all_sprites.draw(screen)
-            screen.blit(font.render('1-UP', False, pygame.Color('#c3c3d9')), (64, 0))
-            screen.blit(font.render('%(score)05d' % {'score': score}, False,
-                                    pygame.Color('#e00000')), (48, 16))
-            screen.blit(font.render('HI-SCORE', False, pygame.Color('#c3c3d9')), (160, 0))
-            screen.blit(font.render('%(highscore)05d' % {'highscore': highscore}, False,
-                                    pygame.Color('#e00000')), (176, 16))
-            screen.blit(font.render('TIME', False, pygame.Color('#e0e000')), (WIDTH - 64, HEIGHT - 16))
-            pygame.draw.rect(screen, pygame.Color('#1dc300' if timer > 5000 else '#e00000'),
-                             pygame.Rect(WIDTH - 64 - 32 * 7.5 / 50000 * timer, HEIGHT - 16,
-                                         32 * 7.5 / 50000 * timer, 16))
-            for i in range(completed):
-                x = WIDTH - 32 - i * 16
-                screen.blit(load_image('completed.png'), (x, HEIGHT - 32))
-
-            all_sprites.update()
-            pygame.display.flip()
-            clock.tick(FPS)
-            if LIFES == -1:
+        if frog.alive() and frog.collide and \
+                frog.cur_frame_death == len(frog.frames_death) and \
+                frog.death_delay == 0:
+            lives -= 1
+            if lives == -1:
                 frog.kill()
-                timer_k -= clock.get_time()
-                if timer_k < 0:
-                    GAME_OVER = 1
-        else:
-            game_over_screen()
+            else:
+                timer = 50000
+        if lives == -1:
+            timer_k -= clock.get_time()
+            if timer_k < 0:
+                game_over_screen()
+
+        if timer < 0:
+            frog.collide = True
+            timer = 0
+        if not frog.collide and reached_homes < 5:
+            if timer == 0:
+                timer = 50000
+            else:
+                timer -= clock.get_time()
+
+        if message_timer > 0:
+            message_timer -= clock.get_time()
+        elif message_timer < 0:
+            message_timer = 0
+
+        if frog.rect.y == max_y - 32:
+            score += 10
+            max_y -= 32
+        if len(list(filter(lambda x: x.cur_state == 'reached',
+                           frog_homes_group))) > reached_homes:
+            reached_homes += 1
+            score += 50
+            rest_time = round(timer / 1000)
+            score += rest_time * 10
+            message = 'TIME %(rest_time)02d' % {'rest_time': rest_time}
+            max_y = HEIGHT - 64
+            if reached_homes != 5:
+                timer = 50000
+                message_timer = 4000
+            else:
+                message_timer = 5000
+        if reached_homes == 5:
+            if message_timer == 5000:
+                score += 1000
+                completed += 1
+                for frog_home in frog_homes_group:
+                    frog_home.change_state('completed')
+                frog.kill()
+            if message_timer < 0:
+                for frog_home in frog_homes_group:
+                    frog_home.change_state('empty')
+                message_timer = 4000
+                message = 'START'
+                reached_homes = 0
+                frog = Frog()
+                timer = 50000
+
+        if score > 99999:
+            score = 99999
+        if score > highscore:
+            highscore = score
+            save_highscore(highscore)
+
+        screen.blit(bg, (0, 0))
+        if message_timer > 0:
+            pygame.draw.rect(screen, pygame.Color('black'),
+                             pygame.Rect(32 * 5.5, 32 * 8.5, 32 * 3.5, 16))
+            render = font.render(message, False, pygame.Color('#e00000'))
+            screen.blit(render, (32 * 5.5 + (
+                    32 * 3.5 / 2 - render.get_width() / 2), 32 * 8.5))
+        all_sprites.draw(screen)
+        screen.blit(font.render('1-UP', False, pygame.Color('#c3c3d9')),
+                    (64, 0))
+        screen.blit(font.render('%(score)05d' % {'score': score}, False,
+                                pygame.Color('#e00000')), (48, 16))
+        screen.blit(font.render('HI-SCORE', False, pygame.Color('#c3c3d9')),
+                    (160, 0))
+        screen.blit(font.render('%(highscore)05d' % {'highscore': highscore},
+                                False, pygame.Color('#e00000')), (176, 16))
+        screen.blit(font.render('TIME', False, pygame.Color('#e0e000')),
+                    (WIDTH - 64, HEIGHT - 16))
+        pygame.draw.rect(screen, pygame.Color(
+            '#1dc300' if timer > 5000 else '#e00000'), pygame.Rect(
+            WIDTH - 64 - 32 * 7.5 / 50000 * timer,
+            HEIGHT - 16, 32 * 7.5 / 50000 * timer, 16))
+        for i in range(completed):
+            x = WIDTH - 32 - i * 16
+            screen.blit(load_image('completed.png'), (x, HEIGHT - 32))
+
+        all_sprites.update()
+        pygame.display.flip()
+        clock.tick(FPS)
 
 
 def game_over_screen():
-    font = pygame.font.Font('data/Frogger-Regular.ttf', 16)
-    timer = 2000
+    global all_sprites, cars_group, float_group, frog_homes_group, lives, \
+        lives_group, score
+    timer = 1000
     timer_rank = 5000
     pos = (WIDTH, 0)
     bg = load_image('background.png')
@@ -557,8 +545,9 @@ def game_over_screen():
         if timer > 0:
             pygame.draw.rect(screen, pygame.Color('#000047'),
                              pygame.Rect(32 * 5, 32 * 8, 32 * 4.5, 16))
-            render = font.render("GAME OVER", False, pygame.Color('#e00000'))
-            screen.blit(render, (32 * 5.5 + (32 * 3.5 / 2 - render.get_width() / 2), 32 * 8))
+            render = font.render('GAME OVER', False, pygame.Color('#e00000'))
+            screen.blit(render, (32 * 5.5 + (
+                    32 * 3.5 / 2 - render.get_width() / 2), 32 * 8))
             pygame.display.flip()
             clock.tick(FPS)
             timer -= clock.get_time()
@@ -568,31 +557,40 @@ def game_over_screen():
                 screen.blit(bg, pos)
             else:
                 if timer_rank > 0:
-                    render = font.render("SCORE RANKING", False, pygame.Color('#E5D500'))
-                    screen.blit(render, (32 * 5.5 + (32 * 3.5 / 2 - render.get_width() / 2), 32 * 6 - 15))
-                    screen.blit(font.render(f'1 ST   {highscore} PTS', False, pygame.Color('#F454DD')),
-                                (32 * 4.5 + (32 * 3.5 / 2 - render.get_width() / 2), 32 * 6.5 + 10))
-                    screen.blit(font.render('1-UP', False, pygame.Color('#c3c3d9')), (64, 0))
-                    screen.blit(font.render('%(score)05d' % {'score': score}, False,
-                                            pygame.Color('#e00000')), (48, 16))
-                    screen.blit(font.render('HI-SCORE', False, pygame.Color('#c3c3d9')), (160, 0))
-                    screen.blit(font.render('%(highscore)05d' % {'highscore': highscore}, False,
-                                            pygame.Color('#e00000')), (176, 16))
-                    screen.blit(font.render('%(highscore)05d' % {'highscore': highscore}, False,
-                                            pygame.Color('#e00000')), (176, 16))
-                    render = font.render("COPIED BY STEPA AND NASTYA", False, pygame.Color('#9493A3'))
-                    screen.blit(render, (32 * 5.5 + (32 * 3.5 / 2 - render.get_width() / 2), HEIGHT - 40))
+                    screen.blit(font.render(
+                        'SCORE RANKING', False, pygame.Color('#e0e000')),
+                        (128, HEIGHT // 2 - 2.5 * 32))
+                    screen.blit(font.render(
+                        '1 ST   ' + '%(highscore)05d'
+                        % {'highscore': highscore} + ' PTS', False,
+                        pygame.Color('#e03ed9'
+                                     if score == highscore else '#c3c3d9')),
+                        (112, HEIGHT // 2 - 32))
+                    screen.blit(font.render(
+                        '1-UP', False, pygame.Color('#c3c3d9')), (64, 0))
+                    screen.blit(font.render(
+                        '%(score)05d' % {'score': score}, False,
+                        pygame.Color('#e00000')), (48, 16))
+                    screen.blit(font.render('HI-SCORE', False,
+                                            pygame.Color('#c3c3d9')), (160, 0))
+                    screen.blit(font.render(
+                        '%(highscore)05d' % {'highscore': highscore}, False,
+                        pygame.Color('#e00000')), (176, 16))
+                    screen.blit(font.render(
+                        '%(highscore)05d' % {'highscore': highscore}, False,
+                        pygame.Color('#e00000')), (176, 16))
+                    screen.blit(font.render(
+                        'COPIED BY STEPA AND NASTYA', False,
+                        pygame.Color('#c3c3d9')), (16, HEIGHT - 64))
                     timer_rank -= clock.get_time()
                 else:
-                    global GAME_OVER, LIFES, all_sprites, cars_group, \
-                        float_group, frog_homes_group, lifes_spritegroup
-                    GAME_OVER = 0
-                    LIFES = 6
+                    score = 0
+                    lives = 6
                     all_sprites = pygame.sprite.Group()
                     cars_group = pygame.sprite.Group()
                     float_group = pygame.sprite.Group()
                     frog_homes_group = pygame.sprite.Group()
-                    lifes_spritegroup = pygame.sprite.Group()
+                    lives_group = pygame.sprite.Group()
                     start_screen()
         pygame.display.flip()
         clock.tick(FPS)
