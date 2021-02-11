@@ -69,9 +69,59 @@ def welcome_screen():
                 cur_frame += 1
                 timer = 750
             else:
-                start_screen()
+                point_table_screen()
         screen.blit(frames[cur_frame], (64, 240))
         pygame.display.flip()
+        timer -= clock.get_time()
+        clock.tick(FPS)
+
+
+def point_table_screen():
+    background = load_image('background.png')
+    timer = 5000
+
+    screen.blit(background, (0, 0))
+    screen.blit(font.render('1-UP', False, pygame.Color('#c3c3d9')),
+                (64, 0))
+    screen.blit(font.render('%(score)05d' % {'score': score}, False,
+                            pygame.Color('#e00000')), (48, 16))
+    screen.blit(font.render('HI-SCORE', False, pygame.Color('#c3c3d9')),
+                (160, 0))
+    screen.blit(font.render('%(highscore)05d' % {'highscore': highscore},
+                            False, pygame.Color('#e00000')), (176, 16))
+    screen.blit(font.render('-POINT TABLE-', False, pygame.Color('#c3c3d9')),
+                (32 * 3.5, HEIGHT / 2 - 3.5 * 32))
+    screen.blit(
+        font.render('10 PTS FOR EACH STEP', False, pygame.Color('#e0e000')),
+        (32, HEIGHT / 2 - 64))
+    screen.blit(
+        font.render('50 PTS FOR EVERY FROG', False, pygame.Color('#e0e000')),
+        (32, HEIGHT / 2 - 16))
+    screen.blit(
+        font.render('ARRIVED HOME SAFELY', False, pygame.Color('#e00000')),
+        (32, HEIGHT / 2))
+    screen.blit(
+        font.render('1000 PTS BY SAVING FROGS', False, pygame.Color(
+            '#e0e000')), (32, HEIGHT / 2 + 32))
+    screen.blit(
+        font.render('INTO FIVE HOMES', False, pygame.Color('#e00000')),
+        (32, HEIGHT / 2 + 32 * 1.5))
+    screen.blit(
+        font.render('PLUS BONUS', False, pygame.Color('#e0e000')),
+        (32, HEIGHT / 2 + 32 * 2.5))
+    screen.blit(
+        font.render('10 PTS X REMAINING SECOND', False, pygame.Color(
+            '#e00000')), (32, HEIGHT / 2 + 32 * 3))
+    screen.blit(font.render(
+        'COPIED BY STEPA AND NASTYA', False, pygame.Color('#c3c3d9')),
+        (16, HEIGHT - 64))
+    pygame.display.flip()
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+        if timer <= 0:
+            start_screen()
         timer -= clock.get_time()
         clock.tick(FPS)
 
